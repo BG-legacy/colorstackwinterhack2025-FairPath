@@ -58,6 +58,7 @@ export interface GapAnalysis {
   target_career?: {
     career_id: string;
     name: string;
+    user_input?: string;  // Original user input if different from matched name
   };
   missing_important_skills?: string[];
   missing_skills?: string[];
@@ -72,6 +73,7 @@ export interface GapAnalysis {
   }>;
   analysis_explanation?: string;
   coverage_percentage?: number;
+  is_poor_match?: boolean;  // True if coverage is 0% or no skills match
   summary?: {
     resume_skills_count: number;
     target_skills_count: number;

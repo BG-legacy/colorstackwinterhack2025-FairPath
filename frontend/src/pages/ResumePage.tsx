@@ -473,58 +473,67 @@ function ResumePage(): JSX.Element {
                 )}
               </div>
 
-              {/* Gap Analysis */}
-              {analysisResults.gap_analysis && (
+              {/* Gap Analysis - Only show if there's a good match */}
+              {analysisResults.gap_analysis && 
+               !analysisResults.gap_analysis.error && 
+               (!analysisResults.gap_analysis.is_poor_match || (analysisResults.gap_analysis.coverage_percentage !== undefined && analysisResults.gap_analysis.coverage_percentage > 0)) && (
                 <div className="result-section">
                   <h3 className="subsection-title">Gap Analysis</h3>
-                  {analysisResults.gap_analysis.error ? (
-                    <div className="error-message">{analysisResults.gap_analysis.error}</div>
-                  ) : (
-                    <>
-                      {analysisResults.gap_analysis.target_career && (
-                        <div className="gap-section">
-                          <p className="gap-info">
-                            Analyzing gaps for: <strong>{analysisResults.gap_analysis.target_career.name}</strong>
-                            {analysisResults.gap_analysis.coverage_percentage !== undefined && (
-                              <span className="coverage-badge">
-                                {analysisResults.gap_analysis.coverage_percentage.toFixed(1)}% coverage
+                  <>
+                    {analysisResults.gap_analysis.target_career && (
+                      <div className="gap-section">
+                        <p className="gap-info">
+                          {analysisResults.gap_analysis.target_career.user_input && 
+                           analysisResults.gap_analysis.target_career.user_input !== analysisResults.gap_analysis.target_career.name ? (
+                            <>
+                              Analyzing gaps for: <strong>{analysisResults.gap_analysis.target_career.name}</strong>
+                              <span className="matched-from" style={{ fontSize: '0.9em', color: '#666', marginLeft: '8px' }}>
+                                (matched from "{analysisResults.gap_analysis.target_career.user_input}")
                               </span>
-                            )}
-                          </p>
-                          {analysisResults.gap_analysis.analysis_explanation && (
-                            <div className="gap-explanation">
-                              <p>{analysisResults.gap_analysis.analysis_explanation}</p>
-                            </div>
+                            </>
+                          ) : (
+                            <>
+                              Analyzing gaps for: <strong>{analysisResults.gap_analysis.target_career.name}</strong>
+                            </>
                           )}
-                        </div>
-                      )}
-                      {analysisResults.gap_analysis.missing_important_skills && analysisResults.gap_analysis.missing_important_skills.length > 0 && (
-                        <div className="gap-section">
-                          <h4 className="gap-title">Missing Important Skills (High Priority):</h4>
-                          <div className="skills-grid">
-                            {analysisResults.gap_analysis.missing_important_skills.map((skill, index) => (
-                              <div key={index} className="skill-item missing important">
-                                {skill}
-                              </div>
-                            ))}
+                          {analysisResults.gap_analysis.coverage_percentage !== undefined && 
+                           analysisResults.gap_analysis.coverage_percentage > 0 && (
+                            <span className="coverage-badge">
+                              {analysisResults.gap_analysis.coverage_percentage.toFixed(1)}% coverage
+                            </span>
+                          )}
+                        </p>
+                        {analysisResults.gap_analysis.analysis_explanation && (
+                          <div className="gap-explanation">
+                            <p>{analysisResults.gap_analysis.analysis_explanation}</p>
                           </div>
+                        )}
+                      </div>
+                    )}
+                    {analysisResults.gap_analysis.missing_important_skills && analysisResults.gap_analysis.missing_important_skills.length > 0 && (
+                      <div className="gap-section">
+                        <h4 className="gap-title">Missing Important Skills (High Priority):</h4>
+                        <div className="skills-grid">
+                          {analysisResults.gap_analysis.missing_important_skills.map((skill, index) => (
+                            <div key={index} className="skill-item missing important">
+                              {skill}
+                            </div>
+                          ))}
                         </div>
-                      )}
-                      {analysisResults.gap_analysis.missing_skills && analysisResults.gap_analysis.missing_skills.length > 0 && (
-                        <div className="gap-section">
-                          <h4 className="gap-title">Other Missing Skills:</h4>
-                          <p className="gap-note">
-                            <small>Note: Generic skills (like "Reading Comprehension", "Active Listening") have been filtered out to show only relevant, actionable skills.</small>
-                          </p>
-                          <div className="skills-grid">
-                            {analysisResults.gap_analysis.missing_skills.map((skill, index) => (
-                              <div key={index} className="skill-item missing">
-                                {skill}
-                              </div>
-                            ))}
-                          </div>
+                      </div>
+                    )}
+                    {analysisResults.gap_analysis.missing_skills && analysisResults.gap_analysis.missing_skills.length > 0 && (
+                      <div className="gap-section">
+                        <h4 className="gap-title">Other Missing Skills:</h4>
+                        <div className="skills-grid">
+                          {analysisResults.gap_analysis.missing_skills.map((skill, index) => (
+                            <div key={index} className="skill-item missing">
+                              {skill}
+                            </div>
+                          ))}
                         </div>
-                      )}
+                      </div>
+                    )}
                       {analysisResults.gap_analysis.matching_skills && analysisResults.gap_analysis.matching_skills.length > 0 && (
                         <div className="gap-section">
                           <h4 className="gap-title">Matching Skills:</h4>
@@ -568,14 +577,35 @@ function ResumePage(): JSX.Element {
                           </ul>
                         </div>
                       )}
-                      {(!analysisResults.gap_analysis.missing_important_skills || analysisResults.gap_analysis.missing_important_skills.length === 0) &&
-                       (!analysisResults.gap_analysis.missing_skills || analysisResults.gap_analysis.missing_skills.length === 0) && (
-                        <div className="gap-section">
-                          <p className="gap-info">No significant skill gaps identified. Your resume skills align well with the target career!</p>
-                        </div>
-                      )}
-                    </>
-                  )}
+                    {(!analysisResults.gap_analysis.missing_important_skills || analysisResults.gap_analysis.missing_important_skills.length === 0) &&
+                     (!analysisResults.gap_analysis.missing_skills || analysisResults.gap_analysis.missing_skills.length === 0) &&
+                     (analysisResults.gap_analysis.coverage_percentage !== undefined && analysisResults.gap_analysis.coverage_percentage > 0) && (
+                      <div className="gap-section">
+                        <p className="gap-info">No significant skill gaps identified. Your resume skills align well with the target career!</p>
+                      </div>
+                    )}
+                  </>
+                </div>
+              )}
+              {/* Show error message if gap analysis failed or is a poor match */}
+              {analysisResults.gap_analysis && 
+               analysisResults.gap_analysis.error && (
+                <div className="result-section">
+                  <h3 className="subsection-title">Gap Analysis</h3>
+                  <div className="error-message">{analysisResults.gap_analysis.error}</div>
+                </div>
+              )}
+              {analysisResults.gap_analysis && 
+               !analysisResults.gap_analysis.error && 
+               analysisResults.gap_analysis.is_poor_match && 
+               (analysisResults.gap_analysis.coverage_percentage === undefined || analysisResults.gap_analysis.coverage_percentage === 0) && (
+                <div className="result-section">
+                  <h3 className="subsection-title">Gap Analysis</h3>
+                  <div className="error-message" style={{ color: '#666' }}>
+                    Unable to perform gap analysis: No matching skills found between your resume and the target career. 
+                    This may indicate the target career requires different skills than what's currently in your resume, 
+                    or the career match may need adjustment.
+                  </div>
                 </div>
               )}
             </div>
