@@ -1,6 +1,8 @@
 # FairPath Backend
 
-Backend API for FairPath. Built with FastAPI, keeping it simple and straightforward.
+Backend API for **colorstackwinterhack2025-fairpath**. Built with FastAPI, keeping it simple and straightforward.
+
+Part of the FairPath project - an ethical, inclusive, and human-centered AI career recommendation system built for ColorStack Winter Hack 2025 with a focus on Responsible AI principles.
 
 ## Setup
 

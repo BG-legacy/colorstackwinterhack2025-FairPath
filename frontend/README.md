@@ -1,6 +1,8 @@
 # FairPath Frontend
 
-React + TypeScript + Vite frontend application for FairPath.
+React + TypeScript + Vite frontend application for **colorstackwinterhack2025-fairpath**.
+
+Part of the FairPath project - an ethical, inclusive, and human-centered AI career recommendation system built for ColorStack Winter Hack 2025 with a focus on Responsible AI principles.
 
 ## Getting Started
 
