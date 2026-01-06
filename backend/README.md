@@ -88,6 +88,15 @@ See `.env.example` for all available variables. Key ones:
 - `PORT` - Server port (default: 8000)
 - `ENV_MODE` - Environment mode: development, production, or testing
 - `CORS_ORIGINS` - Comma-separated list of allowed origins for CORS
+- `EAGER_LOAD_MODELS` - Set to `true` to preload models at startup (default: `false` to save memory)
+
+### Memory Optimization
+
+For memory-constrained environments (e.g., Render free tier with 512MB limit):
+- **EAGER_LOAD_MODELS=false** (default): Models and data load lazily on first request. This saves memory at startup but adds a small delay to the first request.
+- **EAGER_LOAD_MODELS=true**: Models and data preload at startup for faster first request, but uses more memory.
+
+The production Dockerfile is configured to use 1 worker (instead of 4) to reduce memory usage, as each worker process loads models separately.
 
 ## Project Structure
 

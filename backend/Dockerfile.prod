@@ -55,8 +55,9 @@ ENV PYTHONDONTWRITEBYTECODE=1
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Production entrypoint with multiple workers
-# Adjust workers based on CPU cores: (2 x CPU cores) + 1
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--access-log", "--log-level", "info"]
+# Production entrypoint with single worker for memory-constrained environments
+# Use 1 worker to reduce memory usage (each worker loads models/data separately)
+# Can be overridden via environment variable WEB_CONCURRENCY if needed
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--access-log", "--log-level", "info"]
 
 

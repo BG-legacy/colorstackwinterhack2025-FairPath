@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     OPENAI_MAX_RETRIES: int = 2  # Maximum number of retries for OpenAI API calls
     OPENAI_RETRY_DELAY: float = 1.0  # Initial delay in seconds for retries (exponential backoff)
     
+    # Memory optimization: Set to False to disable eager loading at startup (load on first request instead)
+    # This is useful for memory-constrained environments like Render free tier
+    EAGER_LOAD_MODELS: bool = False  # Default to False to save memory
+    
     model_config = ConfigDict(
         env_file=".env",
         case_sensitive=True

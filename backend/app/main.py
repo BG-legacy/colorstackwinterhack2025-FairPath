@@ -68,9 +68,16 @@ app.include_router(api_router, prefix="/api")
 @app.on_event("startup")
 async def startup_event():
     """
-    Startup event handler - preload models and warm caches
+    Startup event handler - conditionally preload models and warm caches
     This ensures no first-request lag for models and occupation vectors
+    
+    Can be disabled via EAGER_LOAD_MODELS=False to save memory in constrained environments
     """
+    if not settings.EAGER_LOAD_MODELS:
+        logger.info("Eager loading disabled (EAGER_LOAD_MODELS=False) - models will load on first request")
+        logger.info("This reduces memory usage at startup")
+        return
+    
     logger.info("Starting up - preloading models and warming caches...")
     
     # Preload recommendation service models and warm occupation vectors cache
