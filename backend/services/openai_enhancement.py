@@ -649,6 +649,15 @@ Make it casual and encouraging."""
         Validate and normalize a career name/description using OpenAI.
         Returns the best matching career from the database, or None if no good match.
         
+        Let OpenAI intelligently match the user's natural language input to the best career.
+        Works for ALL career types - medical, technical, educational, business, legal, etc.
+        
+        Examples:
+            - "heart doctor" → "Cardiologists"
+            - "software engineer" → "Software Developers"
+            - "teacher" → "Elementary School Teachers"
+            - "accountant" → "Accountants and Auditors"
+        
         Args:
             career_input: User's input (can be job title, description, etc.)
             all_careers: List of all available careers from database
@@ -660,35 +669,51 @@ Make it casual and encouraging."""
             return None
         
         try:
-            # Get list of all career names (limited to avoid token limits)
+            # Prepare all careers for OpenAI analysis (limit to avoid token limits)
             career_list = []
-            for career in all_careers[:200]:  # Limit to 200 for token efficiency
+            for career in all_careers[:300]:  # Increased limit to give OpenAI more options
                 career_info = {
                     "name": career.get('name', ''),
                     "soc_code": career.get('soc_code', ''),
                     "career_id": career.get('career_id', '')
                 }
-                # Add description if available
+                # Add description if available to help OpenAI understand the role
                 if 'description' in career:
                     career_info["description"] = career.get('description', '')[:200]
                 career_list.append(career_info)
             
-            # Create a formatted list for the prompt
+            # Create a formatted list for the prompt (show more careers)
             careers_text = "\n".join([
                 f"- {c['name']} (SOC: {c['soc_code']}, ID: {c['career_id']})"
                 + (f" - {c.get('description', '')[:150]}" if c.get('description') else "")
-                for c in career_list[:100]  # Show first 100 in prompt
+                for c in career_list[:150]  # Show more careers to OpenAI
             ])
             
             prompt = f"""You're helping someone find a career. They've entered: "{career_input}"
 
-IMPORTANT: Find the BEST SINGLE match. Priority order:
-1. EXACT name match (case-insensitive)
-2. Very close name match (contains the search term or vice versa, e.g., "software engineer" matches "Software Engineers")
-3. Partial match where the search term words appear in the career name
-4. Only if none of the above, consider the most related career
+Your task is to intelligently match their input to the best career from the database. 
 
-Available Careers (sample from database):
+IMPORTANT GUIDELINES:
+1. Understand the user's intent - interpret natural language and match based on meaning, not just keywords
+   Examples:
+   - "heart doctor" or "cardiologist" → "Cardiologists"
+   - "software engineer" or "coder" → "Software Developers" or "Software Engineers"
+   - "teacher" or "educator" → "Elementary School Teachers" or similar
+   - "accountant" or "bookkeeper" → "Accountants and Auditors"
+   - "lawyer" or "attorney" → "Lawyers"
+
+2. Match to actual professional/practitioner roles, not administrative/management roles unless explicitly requested
+   - "doctor" → match to physician roles, not "Medical and Health Services Managers"
+   - "engineer" → match to engineering roles, not "Engineering Managers"
+   - "teacher" → match to teaching roles, not "Education Administrators"
+
+3. Priority order:
+   - EXACT name match (case-insensitive)
+   - Close match based on meaning and intent
+   - Partial match where the search term words appear in the career name
+   - Only if none of the above, consider the most related career
+
+Available Careers:
 {careers_text}
 
 Find the single best matching career. Return ONLY the exact career name from the list above.
@@ -703,7 +728,7 @@ If no good match exists, respond with "NO_MATCH"."""
                 lambda: self.client.chat.completions.create(
                     model=settings.OPENAI_MODEL,
                     messages=[
-                        {"role": "system", "content": "You're a career search assistant. Find the single best matching career from the provided list. Be precise and match the exact career name."},
+                        {"role": "system", "content": "You're a career search assistant. Intelligently match user's natural language input to the best career from the provided list. Understand intent and meaning, not just keywords. Match to practitioner/professional roles rather than administrative roles unless explicitly requested. Return the exact career name from the list."},
                         {"role": "user", "content": prompt}
                     ],
                     **max_tokens_param,

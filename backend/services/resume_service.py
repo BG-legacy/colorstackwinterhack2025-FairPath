@@ -297,6 +297,7 @@ class ResumeService:
         
         # Preserve user's original input
         user_career_name = target_career_name
+        validated_career = None  # Store validated career info
         
         # If career name provided but not ID, validate it using OpenAI
         if target_career_name and not target_career_id:
@@ -319,6 +320,7 @@ class ResumeService:
                 
                 if validated:
                     target_career_id = validated["career_id"]
+                    validated_career = validated  # Store for later use
                 else:
                     return {
                         "error": f"Could not find a matching career for: {target_career_name}"
@@ -398,8 +400,15 @@ class ResumeService:
         else:
             coverage = 0.0
         
-        # Use user's original input name if provided, otherwise use catalog name
-        display_name = user_career_name if user_career_name else target_catalog.occupation.name
+        # Use matched career name from OpenAI validation if available, otherwise use catalog name
+        # If user provided career name and we validated it, use the matched career name
+        if validated_career:
+            display_name = validated_career["name"]  # Use matched career name from OpenAI
+        else:
+            display_name = target_catalog.occupation.name
+        
+        # Determine if this is a poor match (0% coverage means no skills match)
+        is_poor_match = coverage == 0.0 and len(matching_skills) == 0
         
         # Use OpenAI to generate comprehensive gap analysis if available
         if self.openai_service.is_available():
@@ -415,10 +424,11 @@ class ResumeService:
             
             if openai_analysis:
                 # Merge OpenAI analysis with catalog-based analysis
-                return {
+                result = {
                     "target_career": {
                         "career_id": target_career_id,
-                        "name": display_name
+                        "name": display_name,
+                        "user_input": user_career_name if user_career_name else None
                     },
                     "matching_skills": matching_skills,
                     "missing_important_skills": openai_analysis.get("missing_important_skills", missing_important),
@@ -428,6 +438,7 @@ class ResumeService:
                     "analysis_explanation": openai_analysis.get("explanation", ""),
                     "extra_skills": extra_skills,
                     "coverage_percentage": round(coverage, 1),
+                    "is_poor_match": is_poor_match,
                     "summary": {
                         "resume_skills_count": len(resume_skills),
                         "target_skills_count": len(target_skills),
@@ -436,6 +447,7 @@ class ResumeService:
                         "missing_important_count": len(openai_analysis.get("missing_important_skills", missing_important))
                     }
                 }
+                return result
         
         # Fallback to catalog-based analysis if OpenAI is not available
         # Limit to top 20 most relevant missing skills
@@ -444,13 +456,15 @@ class ResumeService:
         return {
             "target_career": {
                 "career_id": target_career_id,
-                "name": display_name
+                "name": display_name,
+                "user_input": user_career_name if user_career_name else None
             },
             "matching_skills": matching_skills,
             "missing_important_skills": missing_important,
             "missing_skills": missing_skills,
             "extra_skills": extra_skills,
             "coverage_percentage": round(coverage, 1),
+            "is_poor_match": is_poor_match,
             "summary": {
                 "resume_skills_count": len(resume_skills),
                 "target_skills_count": len(target_skills),
