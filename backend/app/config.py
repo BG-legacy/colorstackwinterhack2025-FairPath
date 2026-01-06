@@ -25,9 +25,9 @@ class Settings(BaseSettings):
     # Can be set as JSON array or comma-separated string
     # Stored as string to prevent pydantic-settings from trying to parse as JSON automatically
     # The computed field CORS_ORIGINS will parse this and return a List[str]
-    _cors_origins_raw: str = Field(default="", validation_alias="CORS_ORIGINS")
+    cors_origins_raw: str = Field(default="", validation_alias="CORS_ORIGINS", exclude=True)
     
-    @field_validator('_cors_origins_raw', mode='before')
+    @field_validator('cors_origins_raw', mode='before')
     @classmethod
     def parse_cors_origins_raw(cls, v):
         """Store raw CORS_ORIGINS value as string, handling None and list inputs"""
@@ -52,10 +52,10 @@ class Settings(BaseSettings):
         ]
         
         # Handle empty or None values
-        if not self._cors_origins_raw or not self._cors_origins_raw.strip():
+        if not self.cors_origins_raw or not self.cors_origins_raw.strip():
             return default_origins
         
-        v = self._cors_origins_raw.strip()
+        v = self.cors_origins_raw.strip()
         
         # Try to parse as JSON first (if it looks like JSON)
         if v.startswith('['):
