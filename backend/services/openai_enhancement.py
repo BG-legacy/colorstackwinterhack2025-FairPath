@@ -32,6 +32,18 @@ class OpenAIEnhancementService:
         """Check if OpenAI is available"""
         return self.client is not None
     
+    @staticmethod
+    def get_max_tokens_param(model: str, max_tokens: int) -> Dict[str, int]:
+        """
+        Get the correct parameter name for max tokens based on the model.
+        gpt-5.2 uses max_completion_tokens, other models use max_tokens.
+        Returns a dict with the correct parameter name and value.
+        """
+        if model.startswith("gpt-5"):
+            return {"max_completion_tokens": max_tokens}
+        else:
+            return {"max_tokens": max_tokens}
+    
     def _call_with_retry(self, api_call: Callable) -> Any:
         """
         Call OpenAI API with retry logic and exponential backoff
@@ -108,6 +120,7 @@ Create a brief, friendly explanation (2-3 sentences) explaining:
 
 Keep it casual and encouraging, like you're talking to a friend."""
 
+            max_tokens_param = self.get_max_tokens_param(settings.OPENAI_MODEL, 200)
             response = self._call_with_retry(
                 lambda: self.client.chat.completions.create(
                     model=settings.OPENAI_MODEL,
@@ -115,7 +128,7 @@ Keep it casual and encouraging, like you're talking to a friend."""
                         {"role": "system", "content": "You're a helpful career advisor. Give friendly, practical advice."},
                         {"role": "user", "content": prompt}
                     ],
-                    max_tokens=200,
+                    **max_tokens_param,
                     temperature=0.7
                 )
             )
@@ -179,6 +192,7 @@ If the order should change, suggest the better order (just numbers like "2,1,3")
 
 Keep response very short."""
 
+            max_tokens_param = self.get_max_tokens_param(settings.OPENAI_MODEL, 50)
             response = self._call_with_retry(
                 lambda: self.client.chat.completions.create(
                     model=settings.OPENAI_MODEL,
@@ -186,7 +200,7 @@ Keep response very short."""
                         {"role": "system", "content": "You're a career matching expert. Be concise."},
                         {"role": "user", "content": prompt}
                     ],
-                    max_tokens=50,
+                    **max_tokens_param,
                     temperature=0.3
                 )
             )
@@ -266,6 +280,7 @@ Consider:
 Respond with ONLY career names, one per line. If no better matches, say "NONE".
 Be specific with career titles."""
 
+            max_tokens_param = self.get_max_tokens_param(settings.OPENAI_MODEL, 100)
             response = self._call_with_retry(
                 lambda: self.client.chat.completions.create(
                     model=settings.OPENAI_MODEL,
@@ -273,7 +288,7 @@ Be specific with career titles."""
                         {"role": "system", "content": "You're a career matching expert. Suggest careers that genuinely fit the user profile."},
                         {"role": "user", "content": prompt}
                     ],
-                    max_tokens=100,
+                    **max_tokens_param,
                     temperature=0.5
                 )
             )
@@ -382,6 +397,7 @@ Respond with ONLY career names, one per line, exactly {min_recommendations} care
 Be specific with career titles - use the exact names from the list above when possible.
 If a career name is close but not exact, use the closest match from the list."""
 
+            max_tokens_param = self.get_max_tokens_param(settings.OPENAI_MODEL, 200)
             response = self._call_with_retry(
                 lambda: self.client.chat.completions.create(
                     model=settings.OPENAI_MODEL,
@@ -389,7 +405,7 @@ If a career name is close but not exact, use the closest match from the list."""
                         {"role": "system", "content": "You're a career matching expert. Recommend careers that genuinely fit the user profile based on skills, interests, values, and constraints."},
                         {"role": "user", "content": prompt}
                     ],
-                    max_tokens=200,
+                    **max_tokens_param,
                     temperature=0.6
                 )
             )
@@ -510,6 +526,7 @@ CAREER_NAME|EXPLANATION
 
 If no good matches, respond with "NO_MATCHES"."""
 
+            max_tokens_param = self.get_max_tokens_param(settings.OPENAI_MODEL, 500)
             response = self._call_with_retry(
                 lambda: self.client.chat.completions.create(
                     model=settings.OPENAI_MODEL,
@@ -517,7 +534,7 @@ If no good matches, respond with "NO_MATCHES"."""
                         {"role": "system", "content": "You're a career search assistant. Help users find careers by matching their search query to available careers. Be thorough and consider various interpretations of the query."},
                         {"role": "user", "content": prompt}
                     ],
-                    max_tokens=500,
+                    **max_tokens_param,
                     temperature=0.5
                 )
             )
@@ -601,6 +618,7 @@ Growth: {growth:+.1f}%
 
 Make it casual and encouraging."""
 
+            max_tokens_param = self.get_max_tokens_param(settings.OPENAI_MODEL, 100)
             response = self._call_with_retry(
                 lambda: self.client.chat.completions.create(
                     model=settings.OPENAI_MODEL,
@@ -608,7 +626,7 @@ Make it casual and encouraging."""
                         {"role": "system", "content": "You're a friendly career advisor."},
                         {"role": "user", "content": prompt}
                     ],
-                    max_tokens=100,
+                    **max_tokens_param,
                     temperature=0.7
                 )
             )
@@ -680,6 +698,7 @@ CAREER_NAME|BRIEF_EXPLANATION
 
 If no good match exists, respond with "NO_MATCH"."""
 
+            max_tokens_param = self.get_max_tokens_param(settings.OPENAI_MODEL, 200)
             response = self._call_with_retry(
                 lambda: self.client.chat.completions.create(
                     model=settings.OPENAI_MODEL,
@@ -687,7 +706,7 @@ If no good match exists, respond with "NO_MATCH"."""
                         {"role": "system", "content": "You're a career search assistant. Find the single best matching career from the provided list. Be precise and match the exact career name."},
                         {"role": "user", "content": prompt}
                     ],
-                    max_tokens=200,
+                    **max_tokens_param,
                     temperature=0.3  # Lower temperature for more precise matching
                 )
             )
@@ -815,6 +834,9 @@ Guidelines:
 
 Be specific with certification names and providers. Return ONLY valid JSON, no other text."""
 
+            # Get the correct max tokens parameter based on model
+            max_tokens_param = self.get_max_tokens_param(settings.OPENAI_MODEL, 500)
+            
             # Try with json_object format first, fallback to regular if not supported
             response = self._call_with_retry(
                 lambda: self.client.chat.completions.create(
@@ -823,7 +845,7 @@ Be specific with certification names and providers. Return ONLY valid JSON, no o
                         {"role": "system", "content": "You're a career certification expert. Provide accurate, specific certification recommendations in JSON format only."},
                         {"role": "user", "content": prompt}
                     ],
-                    max_tokens=500,
+                    **max_tokens_param,
                     temperature=0.5,
                     response_format={"type": "json_object"}
                 )
@@ -838,7 +860,7 @@ Be specific with certification names and providers. Return ONLY valid JSON, no o
                             {"role": "system", "content": "You're a career certification expert. Provide accurate, specific certification recommendations in JSON format only. Return ONLY valid JSON, no markdown, no code blocks."},
                             {"role": "user", "content": prompt}
                         ],
-                        max_tokens=500,
+                        **max_tokens_param,
                         temperature=0.5
                     )
                 )

@@ -118,6 +118,9 @@ Guidelines:
 
 Return ONLY valid JSON, no other text."""
             
+            # Get the correct max tokens parameter based on model
+            max_tokens_param = self.openai_service.get_max_tokens_param(settings.OPENAI_MODEL, 2000)
+            
             # Try with json_object format first, fallback to regular if not supported
             try:
                 response = self.openai_service.client.chat.completions.create(
@@ -126,7 +129,7 @@ Return ONLY valid JSON, no other text."""
                         {"role": "system", "content": "You're an education and career pathway expert. Provide accurate, realistic education pathway recommendations in JSON format only."},
                         {"role": "user", "content": prompt}
                     ],
-                    max_tokens=2000,
+                    **max_tokens_param,
                     temperature=0.7,
                     response_format={"type": "json_object"}
                 )
@@ -139,7 +142,7 @@ Return ONLY valid JSON, no other text."""
                         {"role": "system", "content": "You're an education and career pathway expert. Provide accurate, realistic education pathway recommendations in JSON format only. Return ONLY valid JSON, no markdown, no code blocks."},
                         {"role": "user", "content": prompt}
                     ],
-                    max_tokens=2000,
+                    **max_tokens_param,
                     temperature=0.7
                 )
             

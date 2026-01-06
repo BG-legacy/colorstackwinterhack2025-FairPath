@@ -489,6 +489,9 @@ Return ONLY valid JSON, no other text."""
             from app.config import settings
             import json
             
+            # Get the correct max tokens parameter based on model
+            max_tokens_param = self.openai_service.get_max_tokens_param(settings.OPENAI_MODEL, 2000)
+            
             # Try with json_object format first (if model supports it)
             try:
                 response = self.openai_service._call_with_retry(
@@ -498,7 +501,7 @@ Return ONLY valid JSON, no other text."""
                             {"role": "system", "content": "You're a career transition expert. Provide detailed, realistic career switch analysis in JSON format only."},
                             {"role": "user", "content": prompt}
                         ],
-                        max_tokens=2000,
+                        **max_tokens_param,
                         temperature=0.5,
                         response_format={"type": "json_object"}
                     )
@@ -516,7 +519,7 @@ Return ONLY valid JSON, no other text."""
                             {"role": "system", "content": "You're a career transition expert. Provide detailed, realistic career switch analysis in JSON format only. Return ONLY valid JSON, no markdown, no code blocks."},
                             {"role": "user", "content": prompt}
                         ],
-                        max_tokens=2000,
+                        **max_tokens_param,
                         temperature=0.5
                     )
                 )
