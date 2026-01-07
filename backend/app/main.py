@@ -32,7 +32,14 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Add security middleware (order matters - rate limiting first, then size limiting)
+# Add security middleware (order matters - added in reverse execution order)
+# FastAPI middleware executes in reverse order of addition
+app.add_middleware(
+    SizeLimitingMiddleware,
+    max_request_size=settings.MAX_REQUEST_SIZE,
+    max_upload_size=settings.MAX_UPLOAD_SIZE
+)
+
 app.add_middleware(
     RateLimitingMiddleware,
     requests_per_minute=settings.RATE_LIMIT_PER_MINUTE,
@@ -40,17 +47,13 @@ app.add_middleware(
     requests_per_day=settings.RATE_LIMIT_PER_DAY
 )
 
-app.add_middleware(
-    SizeLimitingMiddleware,
-    max_request_size=settings.MAX_REQUEST_SIZE,
-    max_upload_size=settings.MAX_UPLOAD_SIZE
-)
-
-# CORS setup - allowing frontend to hit this
+# CORS setup - MUST be added LAST so it executes FIRST to handle preflight OPTIONS requests
 # I'm allowing all the common localhost ports, you can add more in .env
+cors_origins = settings.CORS_ORIGINS
+logger.info(f"CORS configured with origins: {cors_origins}")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

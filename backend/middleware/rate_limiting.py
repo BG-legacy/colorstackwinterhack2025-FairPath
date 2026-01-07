@@ -117,8 +117,12 @@ class RateLimitingMiddleware(BaseHTTPMiddleware):
     
     async def dispatch(self, request: Request, call_next):
         """Process request with rate limiting"""
-        # Skip rate limiting for health checks and static endpoints
+        # Skip rate limiting for health checks, static endpoints, and CORS preflight requests
         if request.url.path in ["/", "/health", "/version"]:
+            return await call_next(request)
+        
+        # Skip rate limiting for OPTIONS requests (CORS preflight)
+        if request.method == "OPTIONS":
             return await call_next(request)
         
         # Get client IP

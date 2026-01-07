@@ -72,6 +72,7 @@ class Settings(BaseSettings):
         # Treat as comma-separated string
         # Strip trailing slashes from origins (CORS doesn't accept them)
         origins = [origin.strip().rstrip('/') for origin in v.split(',') if origin.strip()]
+        # Return parsed origins if valid, otherwise fall back to defaults
         return origins if origins else default_origins
     
     # Database stuff if needed later
