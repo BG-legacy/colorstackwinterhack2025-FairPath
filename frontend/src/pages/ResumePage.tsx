@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './ResumePage.css';
 import resumeService, {
-  ResumeAnalysisResponse,
   ResumeRewriteRequest,
   ResumeRewriteResponse,
   validateFile,
@@ -28,18 +27,7 @@ function ResumePage(): JSX.Element {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [fileError, setFileError] = useState<string>('');
-
-  // Target career state (for analysis)
-  const [targetCareerName, setTargetCareerName] = useState<string>('');
-  const [validatedCareer, setValidatedCareer] = useState<{ career_id: string; name: string } | null>(null);
-  const [isValidatingCareer, setIsValidatingCareer] = useState<boolean>(false);
-  const [careerValidationError, setCareerValidationError] = useState<string>('');
-
-  // Analysis state
-  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
-  const [analysisError, setAnalysisError] = useState<string>('');
-  const [analysisResults, setAnalysisResults] = useState<ResumeAnalysisResponse | null>(null);
-  const [showExtractedText, setShowExtractedText] = useState<boolean>(false);
+  const [isExtracting, setIsExtracting] = useState<boolean>(false);
 
   // Rewrite state
   const [rewriteBullets, setRewriteBullets] = useState<string[]>(['']);
@@ -51,39 +39,6 @@ function ResumePage(): JSX.Element {
   const [isRewriting, setIsRewriting] = useState<boolean>(false);
   const [rewriteError, setRewriteError] = useState<string>('');
   const [rewriteResults, setRewriteResults] = useState<ResumeRewriteResponse | null>(null);
-
-  // Validate career name with debounce (for analysis)
-  useEffect(() => {
-    const timeoutId = setTimeout(async () => {
-      if (!targetCareerName.trim()) {
-        setValidatedCareer(null);
-        setCareerValidationError('');
-        return;
-      }
-
-      setIsValidatingCareer(true);
-      setCareerValidationError('');
-      try {
-        const validated = await dataService.validateCareerName(targetCareerName);
-        if (validated) {
-          setValidatedCareer({
-            career_id: validated.career_id,
-            name: validated.name
-          });
-          setCareerValidationError('');
-        } else {
-          setValidatedCareer(null);
-          setCareerValidationError('No matching career found. Please try a different name.');
-        }
-      } catch (err) {
-        setValidatedCareer(null);
-        setCareerValidationError(err instanceof Error ? err.message : 'Failed to validate career name');
-      } finally {
-        setIsValidatingCareer(false);
-      }
-    }, 800); // Debounce delay for validation
-    return () => clearTimeout(timeoutId);
-  }, [targetCareerName]);
 
   // Validate career name with debounce (for rewrite)
   useEffect(() => {
@@ -118,8 +73,8 @@ function ResumePage(): JSX.Element {
     return () => clearTimeout(timeoutId);
   }, [rewriteTargetCareerName]);
 
-  // Handle file selection
-  const handleFileSelect = useCallback((file: File): void => {
+  // Handle file selection - automatically extract text and bullets
+  const handleFileSelect = useCallback(async (file: File): Promise<void> => {
     setFileError('');
     const validationError = validateFile(file);
     if (validationError) {
@@ -128,6 +83,30 @@ function ResumePage(): JSX.Element {
       return;
     }
     setSelectedFile(file);
+    
+    // Automatically extract text and bullets from the resume
+    setIsExtracting(true);
+    setFileError('');
+    try {
+      const result = await resumeService.analyzeResume(file);
+      
+      // Populate rewrite section with extracted data
+      if (result.structure.bullets && result.structure.bullets.length > 0) {
+        setRewriteBullets(result.structure.bullets);
+      } else {
+        // If no bullets found, keep at least one empty field
+        setRewriteBullets(['']);
+      }
+      
+      // Set the full resume text for context
+      if (result.extracted_text) {
+        setRewriteResumeText(result.extracted_text);
+      }
+    } catch (err) {
+      setFileError(err instanceof Error ? err.message : 'Failed to extract resume content');
+    } finally {
+      setIsExtracting(false);
+    }
   }, []);
 
   // Handle file input change
@@ -165,31 +144,6 @@ function ResumePage(): JSX.Element {
   // Handle file picker button click
   const handleFilePickerClick = (): void => {
     fileInputRef.current?.click();
-  };
-
-  // Handle analysis
-  const handleAnalyze = async (): Promise<void> => {
-    if (!selectedFile) {
-      setFileError('Please select a file first');
-      return;
-    }
-
-    setAnalysisError('');
-    setIsAnalyzing(true);
-    setAnalysisResults(null);
-
-    try {
-      const result = await resumeService.analyzeResume(
-        selectedFile,
-        validatedCareer?.career_id,
-        validatedCareer ? undefined : targetCareerName || undefined
-      );
-      setAnalysisResults(result);
-    } catch (err) {
-      setAnalysisError(err instanceof Error ? err.message : 'Failed to analyze resume');
-    } finally {
-      setIsAnalyzing(false);
-    }
   };
 
   // Handle rewrite
@@ -314,7 +268,7 @@ function ResumePage(): JSX.Element {
         </button>
 
         <div className="resume-content">
-          <h1 className="resume-title">Resume Analysis & Rewrite</h1>
+          <h1 className="resume-title">Resume Rewrite</h1>
 
           {/* File Upload Section */}
           <div className="upload-section">
@@ -345,7 +299,8 @@ function ResumePage(): JSX.Element {
                     onClick={() => {
                       setSelectedFile(null);
                       setFileError('');
-                      setAnalysisResults(null);
+                      setRewriteBullets(['']);
+                      setRewriteResumeText('');
                     }}
                   >
                     ×
@@ -368,248 +323,12 @@ function ResumePage(): JSX.Element {
               )}
             </div>
             {fileError && <div className="error-message">{fileError}</div>}
-
-            {/* Target Career Input (Optional) */}
-            <div className="target-career-selector">
-              <label className="form-label">Target Career (Optional - for gap analysis)</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Type a career name or description (e.g., 'Software Engineer', 'Data Scientist')..."
-                value={targetCareerName}
-                onChange={(e) => {
-                  setTargetCareerName(e.target.value);
-                  if (!e.target.value) {
-                    setValidatedCareer(null);
-                    setCareerValidationError('');
-                  }
-                }}
-              />
-              {isValidatingCareer && (
-                <div className="search-loading">Validating career with AI...</div>
-              )}
-              {validatedCareer && !isValidatingCareer && targetCareerName.trim() && (
-                <div className="selected-career" style={{ marginTop: '8px', color: '#4CAF50' }}>
-                  <span>✓ Using: {targetCareerName}</span>
-                </div>
-              )}
-              {careerValidationError && !isValidatingCareer && (
-                <div className="error-message" style={{ marginTop: '8px' }}>{careerValidationError}</div>
-              )}
-            </div>
-
-            <button
-              type="button"
-              className="submit-button"
-              onClick={handleAnalyze}
-              disabled={!selectedFile || isAnalyzing}
-            >
-              {isAnalyzing ? 'Analyzing...' : 'Analyze Resume'}
-            </button>
-            {analysisError && <div className="error-banner">{analysisError}</div>}
+            {isExtracting && (
+              <div className="extracting-message" style={{ marginTop: '12px', color: '#666', fontStyle: 'italic' }}>
+                Extracting resume content...
+              </div>
+            )}
           </div>
-
-          {/* Analysis Results */}
-          {analysisResults && (
-            <div className="analysis-results">
-              <h2 className="section-title">Analysis Results</h2>
-
-              {/* Extracted Text (Collapsible) */}
-              <div className="result-section">
-                <button
-                  type="button"
-                  className="collapsible-header"
-                  onClick={() => setShowExtractedText(!showExtractedText)}
-                >
-                  <span>Extracted Text</span>
-                  <span className="collapsible-icon">{showExtractedText ? '▼' : '▶'}</span>
-                </button>
-                {showExtractedText && (
-                  <div className="collapsible-content">
-                    <pre className="extracted-text">{analysisResults.extracted_text}</pre>
-                  </div>
-                )}
-              </div>
-
-              {/* Detected Skills */}
-              <div className="result-section">
-                <h3 className="subsection-title">Detected Skills ({analysisResults.detected_skills.length})</h3>
-                <div className="skills-grid">
-                  {analysisResults.detected_skills.map((skill, index) => (
-                    <div key={index} className="skill-item">
-                      <span className="skill-name">{skill.skill}</span>
-                      {skill.confidence !== undefined && (
-                        <span className="skill-confidence">
-                          {(skill.confidence * 100).toFixed(0)}%
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Resume Structure */}
-              <div className="result-section">
-                <h3 className="subsection-title">Resume Structure</h3>
-                {analysisResults.structure.sections && analysisResults.structure.sections.length > 0 && (
-                  <div className="structure-section">
-                    <h4 className="structure-title">Sections:</h4>
-                    <ul className="structure-list">
-                      {analysisResults.structure.sections.map((section, index) => (
-                        <li key={index}>{section}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {analysisResults.structure.bullets && analysisResults.structure.bullets.length > 0 && (
-                  <div className="structure-section">
-                    <h4 className="structure-title">Bullet Points ({analysisResults.structure.bullets.length}):</h4>
-                    <ul className="structure-list">
-                      {analysisResults.structure.bullets.map((bullet, index) => (
-                        <li key={index}>{bullet}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-
-              {/* Gap Analysis - Only show if there's a good match */}
-              {analysisResults.gap_analysis && 
-               !analysisResults.gap_analysis.error && 
-               (!analysisResults.gap_analysis.is_poor_match || (analysisResults.gap_analysis.coverage_percentage !== undefined && analysisResults.gap_analysis.coverage_percentage > 0)) && (
-                <div className="result-section">
-                  <h3 className="subsection-title">Gap Analysis</h3>
-                  <>
-                    {analysisResults.gap_analysis.target_career && (
-                      <div className="gap-section">
-                        <p className="gap-info">
-                          {analysisResults.gap_analysis.target_career.user_input && 
-                           analysisResults.gap_analysis.target_career.user_input !== analysisResults.gap_analysis.target_career.name ? (
-                            <>
-                              Analyzing gaps for: <strong>{analysisResults.gap_analysis.target_career.name}</strong>
-                              <span className="matched-from" style={{ fontSize: '0.9em', color: '#666', marginLeft: '8px' }}>
-                                (matched from "{analysisResults.gap_analysis.target_career.user_input}")
-                              </span>
-                            </>
-                          ) : (
-                            <>
-                              Analyzing gaps for: <strong>{analysisResults.gap_analysis.target_career.name}</strong>
-                            </>
-                          )}
-                          {analysisResults.gap_analysis.coverage_percentage !== undefined && 
-                           analysisResults.gap_analysis.coverage_percentage > 0 && (
-                            <span className="coverage-badge">
-                              {analysisResults.gap_analysis.coverage_percentage.toFixed(1)}% coverage
-                            </span>
-                          )}
-                        </p>
-                        {analysisResults.gap_analysis.analysis_explanation && (
-                          <div className="gap-explanation">
-                            <p>{analysisResults.gap_analysis.analysis_explanation}</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {analysisResults.gap_analysis.missing_important_skills && analysisResults.gap_analysis.missing_important_skills.length > 0 && (
-                      <div className="gap-section">
-                        <h4 className="gap-title">Missing Important Skills (High Priority):</h4>
-                        <div className="skills-grid">
-                          {analysisResults.gap_analysis.missing_important_skills.map((skill, index) => (
-                            <div key={index} className="skill-item missing important">
-                              {skill}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {analysisResults.gap_analysis.missing_skills && analysisResults.gap_analysis.missing_skills.length > 0 && (
-                      <div className="gap-section">
-                        <h4 className="gap-title">Other Missing Skills:</h4>
-                        <div className="skills-grid">
-                          {analysisResults.gap_analysis.missing_skills.map((skill, index) => (
-                            <div key={index} className="skill-item missing">
-                              {skill}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                      {analysisResults.gap_analysis.matching_skills && analysisResults.gap_analysis.matching_skills.length > 0 && (
-                        <div className="gap-section">
-                          <h4 className="gap-title">Matching Skills:</h4>
-                          <div className="skills-grid">
-                            {analysisResults.gap_analysis.matching_skills.map((skill, index) => (
-                              <div key={index} className="skill-item matching">
-                                {skill}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {analysisResults.gap_analysis.recommended_skills && analysisResults.gap_analysis.recommended_skills.length > 0 && (
-                        <div className="gap-section">
-                          <h4 className="gap-title">Recommended Skills:</h4>
-                          <div className="skills-grid">
-                            {analysisResults.gap_analysis.recommended_skills.map((skill, index) => (
-                              <div key={index} className="skill-item recommended">
-                                {skill}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {analysisResults.gap_analysis.skill_gaps && analysisResults.gap_analysis.skill_gaps.length > 0 && (
-                        <div className="gap-section">
-                          <h4 className="gap-title">Detailed Skill Gaps:</h4>
-                          <ul className="gap-list">
-                            {analysisResults.gap_analysis.skill_gaps.map((gap, index) => (
-                              <li key={index} className={`gap-item ${gap.gap_level}`}>
-                                <div className="gap-item-content">
-                                  <span className="gap-skill">{gap.skill}</span>
-                                  <span className="gap-importance">Importance: {gap.importance.toFixed(1)}</span>
-                                  <span className={`gap-level ${gap.gap_level}`}>{gap.gap_level}</span>
-                                </div>
-                                {gap.explanation && (
-                                  <p className="gap-explanation-text">{gap.explanation}</p>
-                                )}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    {(!analysisResults.gap_analysis.missing_important_skills || analysisResults.gap_analysis.missing_important_skills.length === 0) &&
-                     (!analysisResults.gap_analysis.missing_skills || analysisResults.gap_analysis.missing_skills.length === 0) &&
-                     (analysisResults.gap_analysis.coverage_percentage !== undefined && analysisResults.gap_analysis.coverage_percentage > 0) && (
-                      <div className="gap-section">
-                        <p className="gap-info">No significant skill gaps identified. Your resume skills align well with the target career!</p>
-                      </div>
-                    )}
-                  </>
-                </div>
-              )}
-              {/* Show error message if gap analysis failed or is a poor match */}
-              {analysisResults.gap_analysis && 
-               analysisResults.gap_analysis.error && (
-                <div className="result-section">
-                  <h3 className="subsection-title">Gap Analysis</h3>
-                  <div className="error-message">{analysisResults.gap_analysis.error}</div>
-                </div>
-              )}
-              {analysisResults.gap_analysis && 
-               !analysisResults.gap_analysis.error && 
-               analysisResults.gap_analysis.is_poor_match && 
-               (analysisResults.gap_analysis.coverage_percentage === undefined || analysisResults.gap_analysis.coverage_percentage === 0) && (
-                <div className="result-section">
-                  <h3 className="subsection-title">Gap Analysis</h3>
-                  <div className="error-message" style={{ color: '#666' }}>
-                    Unable to perform gap analysis: No matching skills found between your resume and the target career. 
-                    This may indicate the target career requires different skills than what's currently in your resume, 
-                    or the career match may need adjustment.
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Rewrite Section */}
           <div className="rewrite-section">
