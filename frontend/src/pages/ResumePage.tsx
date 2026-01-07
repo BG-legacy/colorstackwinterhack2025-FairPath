@@ -163,9 +163,6 @@ function ResumePage(): JSX.Element {
     setIsRewriting(true);
     setRewriteResults(null);
 
-    // Check if this is a full resume rewrite (15+ bullets)
-    const isFullResume = validBullets.length >= 15;
-
     try {
       const request: ResumeRewriteRequest = {
         bullets: validBullets,
@@ -427,7 +424,7 @@ function ResumePage(): JSX.Element {
             </button>
             {isRewriting && rewriteBullets.filter(b => b.trim().length > 0).length >= 15 && (
               <div className="info-message" style={{ marginTop: '12px', color: '#666', fontStyle: 'italic' }}>
-                Processing {rewriteBullets.filter(b => b.trim().length > 0).length} bullet points. This may take 3-5 minutes.
+                Processing {validBullets.length} bullet points. This may take 3-5 minutes.
               </div>
             )}
             {rewriteError && <div className="error-banner">{rewriteError}</div>}
