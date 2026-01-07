@@ -359,6 +359,11 @@ class ResumeService:
             display_name = target_catalog.occupation.name
         
         # Use OpenAI to generate comprehensive gap analysis - no catalog matching
+        # Force re-check availability in case settings were loaded after service initialization
+        if not self.openai_service.is_available():
+            # Double-check: Try to re-initialize the OpenAI service
+            self.openai_service._initialize_client()
+        
         if self.openai_service.is_available():
             openai_analysis = self._generate_openai_gap_analysis(
                 resume_skills=resume_skills,
@@ -417,9 +422,21 @@ class ResumeService:
                 }
                 return result
         
-        # Fallback: If OpenAI is not available, return error
+        # Fallback: If OpenAI is not available, return error with diagnostics
+        api_key_status = "not configured"
+        if hasattr(settings, 'OPENAI_API_KEY') and settings.OPENAI_API_KEY:
+            if settings.OPENAI_API_KEY.strip() and settings.OPENAI_API_KEY != "your_openai_api_key_here":
+                api_key_status = f"configured (key: {settings.OPENAI_API_KEY[:10]}...)"
+            else:
+                api_key_status = "empty or placeholder"
+        
         return {
-            "error": "OpenAI service is required for gap analysis. Please configure OPENAI_API_KEY."
+            "error": "OpenAI service is required for gap analysis. Please configure OPENAI_API_KEY.",
+            "diagnostics": {
+                "api_key_status": api_key_status,
+                "client_initialized": self.openai_service.client is not None,
+                "service_available": self.openai_service.is_available()
+            }
         }
     
     def _refine_missing_skills_with_openai(

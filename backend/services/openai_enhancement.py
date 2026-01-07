@@ -24,28 +24,32 @@ class OpenAIEnhancementService:
     
     def _initialize_client(self):
         """Initialize OpenAI client with proper error handling"""
-        api_key = getattr(settings, 'OPENAI_API_KEY', None)
+        import os
+        # Try multiple sources: settings object first, then environment variable directly
+        api_key = getattr(settings, 'OPENAI_API_KEY', None) or os.getenv('OPENAI_API_KEY')
         
         # Check if API key exists and is valid
         if not api_key:
-            print("Warning: OPENAI_API_KEY not found in settings")
+            print("Warning: OPENAI_API_KEY not found in settings or environment")
+            self.client = None
             return
         
         # Strip whitespace and check if it's not a placeholder
         api_key = api_key.strip()
         if not api_key or api_key == "your_openai_api_key_here":
             print("Warning: OPENAI_API_KEY is empty or placeholder value")
+            self.client = None
             return
         
         # Validate key format (OpenAI keys start with 'sk-')
         if not api_key.startswith('sk-'):
-            print(f"Warning: OPENAI_API_KEY format appears invalid (should start with 'sk-')")
+            print(f"Warning: OPENAI_API_KEY format appears invalid (should start with 'sk-'), got: {api_key[:10]}...")
             # Still try to initialize in case of new key format
         
         try:
             # Initialize client - timeout handled via httpx.Timeout or in retry logic
             self.client = OpenAI(api_key=api_key)
-            print(f"OpenAI client initialized successfully")
+            print(f"OpenAI client initialized successfully (key: {api_key[:10]}...)")
         except Exception as e:
             print(f"Warning: Could not initialize OpenAI client: {e}")
             self.client = None
