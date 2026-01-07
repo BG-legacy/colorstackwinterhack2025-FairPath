@@ -301,6 +301,11 @@ class ResumeService:
         
         # If career name provided but not ID, validate it using OpenAI
         if target_career_name and not target_career_id:
+            # Force re-check availability in case settings were loaded after service initialization
+            if not self.openai_service.is_available():
+                # Double-check: Try to re-initialize the OpenAI service
+                self.openai_service._initialize_client()
+            
             if self.openai_service.is_available():
                 catalog = self.get_catalog()
                 all_careers = []
